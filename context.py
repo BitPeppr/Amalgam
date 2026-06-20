@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-IGNORE = ['.venv', 'venv', 'env', '.env', 'node_modules', 'dist', 'build', '__pycache__', '.git', '.github', '.vscode', '.idea', '.pytest_cache', '.mypy_cache', '.tox', '.eggs', 'site-packages', 'target', '.notes', '.cache', '.local', '.config', '.cargo', '.rustup', '.nvm', '.npm', '.yarn', '.pnpm', 'vendor', 'third_party', '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.eslintignore', '.dockerignore', '.npmignore', '.pyc']
+IGNORE = ['.venv', 'venv', 'env', '.env', 'node_modules', 'dist', 'build', '__pycache__', '.git', '.github', '.vscode', '.idea', '.pytest_cache', '.mypy_cache', '.tox', '.eggs', 'site-packages', 'target', '.notes', '.cache', '.local', '.config', '.cargo', '.rustup', '.nvm', '.npm', '.yarn', '.pnpm', 'vendor', 'third_party', '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.eslintignore', '.dockerignore', '.npmignore', '.pyc', '.env', '.env.local', '.env.development', '.env.production', '.env.test', 'secret', 'env', 'key', 'keys', 'password', 'passwords', 'credential', 'credentials', 'token', 'tokens',]
 EXTENSIONS = {
     '.py', '.ts', '.js', '.tsx', '.jsx',
     '.rs', '.go', '.rb', '.java', '.kt',
@@ -57,7 +57,11 @@ def collect_files(root='.'):
 
 def build_json(root):
     files = collect_files(root)
-    data = {str(f.relative_to(root)): f.read_text() for f in files}
+    try:
+        data = {str(f.relative_to(root)): f.read_text() for f in files}
+    except Exception as e:
+        print(f"Error reading files: {e}")
+        data = {}
     return json.dumps(data, indent=2)
 
 
@@ -68,7 +72,11 @@ def find_context():
     files = collect_files()
     parts = []
     for f in files:
-        content = f.read_text()
+        try:
+            content = f.read_text()
+        except Exception as e:
+            print(f"Error reading file {f}: {e}")
+            content = ""
         chunk = f"<file path='{f.relative_to('.')}' size='{len(content)}'>\n{content}\n</file>\n"
         parts.append(chunk)
     header = f"<files count='{len(files)}'>\n"

@@ -7,6 +7,24 @@ from openai import OpenAI
 from context import find_context
 
 
+def validate_key(client):
+    try:
+        response = client.chat.completions.create(
+            model="big-pickle",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "What is 2 + 2? Provide one number as the answer, and no other words or information."}
+                ],
+            temperature=0.0
+            )
+        if response.choices[0].message.content.strip() == "4":
+            return True
+        else:
+            return False
+    except Exception:
+        return False
+
+
 def query_provider(client, model_, prompt, temperature_, context):
     try:
         response = client.chat.completions.create(
@@ -21,6 +39,7 @@ def query_provider(client, model_, prompt, temperature_, context):
 
         return (response.choices[0].message.content)
     except Exception:
+        print(f"Error querying model {model_} with temperature {temperature_}: {str(Exception)}")
         return False
 
 def summarisation(client, model_, temperature, responses, context):
@@ -37,6 +56,7 @@ def summarisation(client, model_, temperature, responses, context):
 
         return (response.choices[0].message.content)
     except Exception:
+        print(f"Error summarising with model {model_} and temperature {temperature}: {str(Exception)}")
         return False
 
 def parse():
@@ -62,6 +82,9 @@ def main():
         base_url="https://opencode.ai/zen/v1",
         api_key=api_key_
     )
+    if not validate_key(client):
+        print("Invalid API key. Please check your key and try again.")
+        return
     models = get_free_models()
     temperatures = [0.0, 0.4, 0.8]
     context = find_context()
