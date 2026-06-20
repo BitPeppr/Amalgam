@@ -1,7 +1,10 @@
 import argparse
 import os
 
+import requests
 from openai import OpenAI
+
+from context import find_context
 
 
 def query_provider(client, model_, prompt, temperature_, context):
@@ -40,19 +43,23 @@ def parse():
     parser = argparse.ArgumentParser(description="Run the panel multi-model tool.")
     parser.add_argument("--key", type=str, help="API key for the provider (if unprovided, will use environment variable ZEN_API_KEY)")
     parser.add_argument("prompt", type=str, help="The prompt to send to the panel")
+    parser.add_argument("--summary_model", type=str, help="The model to use for summarisation (default: first free model returned by the provider)")
+    parser.add_argument("--summary_temperature", type=float, default=0.3, help="The temperature to use for summarisation (default: 0.3)")
     return parser.parse_args()
 
 def get_free_models():
-    pass
+    r = requests.get('https://opencode.ai/zen/v1/models')
+    if len(r.json()["data"]) == 0:
+        raise Exception("No models found")
+    free = [m["id"] for m in r.json()["data"] if m["id"].endswith("-free")]
+    return free
 
-def find_context():
-    pass
 
 def main():
     args = parse()
     api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
     client = OpenAI(
-        base_url="https://opencode.ai/zen/v1/chat/completions",
+        base_url="https://opencode.ai/zen/v1",
         api_key=api_key_
     )
     models = get_free_models()
@@ -63,6 +70,9 @@ def main():
         for temperature in temperatures:
             response = query_provider(client, model, args.prompt, temperature, context)
             responses.append((model, temperature, response))
-    summary = summarisation(client, model, temperature, responses, context)
+    summary_model = args.summary_model if args.summary_model else models[0]
+    summary = summarisation(client, summary_model, args.summary_temperature, responses, context)
     print(summary)
 
+if __name__ == "__main__":
+    main()
