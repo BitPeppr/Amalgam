@@ -1,5 +1,7 @@
-import json
+import asyncio
 from pathlib import Path
+
+from llm import panel
 
 IGNORE = ['.venv', 'venv', 'env', '.env', 'node_modules', 'dist', 'build', '__pycache__', '.git', '.github', '.vscode', '.idea', '.pytest_cache', '.mypy_cache', '.tox', '.eggs', 'site-packages', 'target', '.notes', '.cache', '.local', '.config', '.cargo', '.rustup', '.nvm', '.npm', '.yarn', '.pnpm', 'vendor', 'third_party', '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.eslintignore', '.dockerignore', '.npmignore', '.pyc', '.env', '.env.local', '.env.development', '.env.production', '.env.test', 'secret', 'env', 'key', 'keys', 'password', 'passwords', 'credential', 'credentials', 'token', 'tokens',]
 EXTENSIONS = {
@@ -53,19 +55,20 @@ def collect_files(root='.'):
         files.append(path)
     return sorted(files)
 
+def read(file, summarise, client, console):
+    text = ''
+    if not summarise:
+        try:
+            text = file.read_text()
+        except Exception as e:
+            print(f"Error reading file {file}: {e}")
+    else:
+        combinations = [('big-pickle', 0.2)]
+        text = asyncio.run(panel(combinations, client, f"Summarise the content of the file {file} in a concise yet informative and detailed manner. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts, or invite follow-up", file.read_text(), 100, console, 'Context'))
+    return text
 
 
-def build_json(root):
-    files = collect_files(root)
-    try:
-        data = {str(f.relative_to(root)): f.read_text() for f in files}
-    except Exception as e:
-        print(f"Error reading files: {e}")
-        data = {}
-    return json.dumps(data, indent=2)
-
-
-def find_context():
+def find_context(client, console, summarise):
     tree_data = format_tree(tree())
     tree_str = "\n".join(tree_data)
 
@@ -73,7 +76,7 @@ def find_context():
     parts = []
     for f in files:
         try:
-            content = f.read_text()
+            content = read(f, summarise, client, console)
         except Exception as e:
             print(f"Error reading file {f}: {e}")
             content = ""
