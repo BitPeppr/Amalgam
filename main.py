@@ -26,7 +26,7 @@ def validate_key(client):
         return False
 
 
-async def query_provider(client, model_, prompt, temperature_, context):
+async def query_provider(client, model_, prompt, temperature_, context, print_length):
     try:
         print(f"Querying model {model_} with temperature {temperature_}...")
         response = await asyncio.to_thread(
@@ -38,11 +38,15 @@ async def query_provider(client, model_, prompt, temperature_, context):
                 {"role": "user", "content": context}
             ],
         )
-        print(f"Response from model {model_} with temperature {temperature_}: {response}")
+        print(f"Response from model {model_} with temperature {temperature_}: \n {response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]}...")
 
         return (response.choices[0].message.content)
     except Exception as e:
-        print(f"Error querying model {model_} with temperature {temperature_}: {str(e)}")
+        try: 
+            detail = e.response.json()['error']['message']
+        except Exception:
+            detail = e
+        print(f"Error querying model {model_} with temperature {temperature_}: {detail}")
         return False
 
 def summarisation(client, model_, temperature, responses, context):
@@ -68,6 +72,10 @@ def parse():
     parser.add_argument("prompt", type=str, help="The prompt to send to the panel")
     parser.add_argument("--summary_model", type=str, help="The model to use for summarisation (default: first free model returned by the provider)")
     parser.add_argument("--summary_temperature", type=float, default=0.3, help="The temperature to use for summarisation (default: 0.3)")
+    parser.add_argument("--timeout", type=int, default=240, help="The timeout for each model response in seconds (default: 240)")
+    parser.add_argument("--print_length", type=int, default=100, help="The number of characters to print from each model's response (default: 100)")
+    parser.add_argument('--num_temperatures', type=int, default=3, help='The number of different temperatures to query for each model (default: 3)')
+    parser.add_argument('--max_temperature', type=float, default=1.0, help='The maximum temperature to query (default: 1.0)')
     return parser.parse_args()
 
 def get_free_models():
@@ -77,8 +85,8 @@ def get_free_models():
     free = [m["id"] for m in r.json()["data"] if m["id"].endswith("-free")]
     return free
 
-async def panel(combinations, client, prompt, context):
-    results = await asyncio.gather(*[query_provider(client, model, prompt, temperature, context) for model, temperature in combinations])
+async def panel(combinations, client, prompt, context, print_length):
+    results = await asyncio.gather(*[query_provider(client, model, prompt, temperature, context, print_length) for model, temperature in combinations])
     return results
 
 def main():
@@ -86,7 +94,8 @@ def main():
     api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
     client = OpenAI(
         base_url="https://opencode.ai/zen/v1",
-        api_key=api_key_
+        api_key=api_key_,
+        timeout=args.timeout
     )
     print("Validating API key...")
     if not validate_key(client):
@@ -94,10 +103,10 @@ def main():
         return
     print('API key validated successfully.')
     models = get_free_models()
-    temperatures = [0.0, 0.4, 0.8]
+    temperatures = [1 // args.max_temperature * i for i in range(args.num_temperatures)]
     context = find_context()
     combinations = [(model, temperature) for model in models for temperature in temperatures]
-    responses = asyncio.run(panel(combinations, client, args.prompt, context))
+    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length))
     summary_model = args.summary_model if args.summary_model else models[0]
     summary = summarisation(client, summary_model, args.summary_temperature, responses, context)
     print(summary)
