@@ -28,9 +28,9 @@ def validate_key(client):
         return False
 
 
-async def query_provider(client, model_, prompt, temperature_, context, print_length):
+async def query_provider(client, model_, prompt, temperature_, context, print_length, style, console):
     try:
-        print(f"Querying model {model_} with temperature {temperature_}...\n")
+        console.print(f"[bold]Querying model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline] ...[/bold]\n")
         response = await asyncio.to_thread(
             client.chat.completions.create,
             model=model_,
@@ -40,7 +40,7 @@ async def query_provider(client, model_, prompt, temperature_, context, print_le
                 {"role": "user", "content": context}
             ],
         )
-        print(f"Response from model {model_} with temperature {temperature_}: \n {response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]}... \n")
+        console.print(f"[bold]Response from model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline]:[/bold] [italic]{response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]} ...[/italic]\n")
 
         return (response.choices[0].message.content)
     except Exception as e:
@@ -48,12 +48,12 @@ async def query_provider(client, model_, prompt, temperature_, context, print_le
             detail = e.response.json()['error']['message']
         except Exception:
             detail = e
-        print(f"Error querying model {model_} with temperature {temperature_}: {detail}\n")
+        console.print(f"[bold]Error querying model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline]:[/bold] [italic]{detail}[/italic]\n")
         return False
 
-def summarisation(client, model_, temperature, responses, context):
+def summarisation(client, model_, temperature, responses, context, style, console):
     try:
-        print(f"Summarising responses with model {model_} and temperature {temperature}...")
+        console.print(f"[bold]Summarising responses with model [blue underline]{model_}[/blue underline] and temperature [blue underline]{temperature}[/blue underline] ...[/bold]")
         response = client.chat.completions.create(
             model=model_,  
             messages=[
@@ -65,7 +65,7 @@ def summarisation(client, model_, temperature, responses, context):
 
         return (response.choices[0].message.content)
     except Exception as e:
-        print(f"Error summarising with model {model_} and temperature {temperature}: {str(e)}")
+        console.print(f"[bold]Error summarising with model [blue underline]{model_}[/blue underline] and temperature [blue underline]{temperature}[/blue underline]:[/bold] [italic]{str(e)}[/italic]")
         return False
 
 def parse():
@@ -88,8 +88,8 @@ def get_free_models():
     free = [m["id"] for m in r.json()["data"] if m["id"].endswith("-free")]
     return free
 
-async def panel(combinations, client, prompt, context, print_length):
-    results = await asyncio.gather(*[query_provider(client, model, prompt, temperature, context, print_length) for model, temperature in combinations])
+async def panel(combinations, client, prompt, context, print_length, style, console):
+    results = await asyncio.gather(*[query_provider(client, model, prompt, temperature, context, print_length, style, console) for model, temperature in combinations])
     return results
 
 def main():
@@ -102,24 +102,24 @@ def main():
         timeout=args.timeout
     )
     console = Console()
-    print("Validating API key...")
+    console.print("[bold]Validating API key ...[/bold]")
     if not validate_key(client):
-        print("Invalid API key. Please check your key and try again.")
+        console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
         return
-    print('API key validated successfully.\n')
+    console.print("[bold]API key validated successfully.[/bold]\n")
     models = get_free_models()
     temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
     context = find_context()
     combinations = [(model, temperature) for model in models for temperature in temperatures]
-    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length))
+    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length, style, console))
     summary_model = args.summary_model if args.summary_model else models[0]
-    summary = summarisation(client, summary_model, args.summary_temperature, responses, context)
+    summary = summarisation(client, summary_model, args.summary_temperature, responses, context, style, console)
     if summary:
         summary = Markdown(summary)
-        print('\n \n \n \n')
+        console.print('\n \n \n \n')
         console.print(summary)
     else:
-        print("No valid responses received from summary model. Unable to generate summary.")
+        console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
 
 if __name__ == "__main__":
     main()
