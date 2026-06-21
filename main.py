@@ -4,6 +4,8 @@ import os
 
 import requests
 from openai import OpenAI
+from rich.console import Console
+from rich.markdown import Markdown
 
 from context import find_context
 
@@ -28,7 +30,7 @@ def validate_key(client):
 
 async def query_provider(client, model_, prompt, temperature_, context, print_length):
     try:
-        print(f"Querying model {model_} with temperature {temperature_}...")
+        print(f"Querying model {model_} with temperature {temperature_}...\n")
         response = await asyncio.to_thread(
             client.chat.completions.create,
             model=model_,
@@ -38,7 +40,7 @@ async def query_provider(client, model_, prompt, temperature_, context, print_le
                 {"role": "user", "content": context}
             ],
         )
-        print(f"Response from model {model_} with temperature {temperature_}: \n {response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]}...")
+        print(f"Response from model {model_} with temperature {temperature_}: \n {response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]}... \n")
 
         return (response.choices[0].message.content)
     except Exception as e:
@@ -46,7 +48,7 @@ async def query_provider(client, model_, prompt, temperature_, context, print_le
             detail = e.response.json()['error']['message']
         except Exception:
             detail = e
-        print(f"Error querying model {model_} with temperature {temperature_}: {detail}")
+        print(f"Error querying model {model_} with temperature {temperature_}: {detail}\n")
         return False
 
 def summarisation(client, model_, temperature, responses, context):
@@ -76,6 +78,7 @@ def parse():
     parser.add_argument("--print_length", type=int, default=100, help="The number of characters to print from each model's response (default: 100)")
     parser.add_argument('--num_temperatures', type=int, default=3, help='The number of different temperatures to query for each model (default: 3)')
     parser.add_argument('--max_temperature', type=float, default=1.0, help='The maximum temperature to query (default: 1.0)')
+    parser.add_argument('--style', type=str, default = 'bold blue', help='Rich formatting style for system / tool messages')
     return parser.parse_args()
 
 def get_free_models():
@@ -91,25 +94,32 @@ async def panel(combinations, client, prompt, context, print_length):
 
 def main():
     args = parse()
+    style = args.style
     api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
     client = OpenAI(
         base_url="https://opencode.ai/zen/v1",
         api_key=api_key_,
         timeout=args.timeout
     )
+    console = Console()
     print("Validating API key...")
     if not validate_key(client):
         print("Invalid API key. Please check your key and try again.")
         return
-    print('API key validated successfully.')
+    print('API key validated successfully.\n')
     models = get_free_models()
-    temperatures = [1 // args.max_temperature * i for i in range(args.num_temperatures)]
+    temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
     context = find_context()
     combinations = [(model, temperature) for model in models for temperature in temperatures]
     responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length))
     summary_model = args.summary_model if args.summary_model else models[0]
     summary = summarisation(client, summary_model, args.summary_temperature, responses, context)
-    print(summary)
+    if summary:
+        summary = Markdown(summary)
+        print('\n \n \n \n')
+        console.print(summary)
+    else:
+        print("No valid responses received from summary model. Unable to generate summary.")
 
 if __name__ == "__main__":
     main()
