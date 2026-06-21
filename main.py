@@ -93,6 +93,20 @@ async def panel(combinations, client, prompt, context, print_length, style, cons
     return results
 
 def main():
+    context = find_context()
+    combinations = [(model, temperature) for model in models for temperature in temperatures]
+    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length, style, console))
+    summary_model = args.summary_model if args.summary_model else models[0]
+    summary = summarisation(client, summary_model, args.summary_temperature, responses, context, style, console)
+    if summary:
+        summary = Markdown(summary)
+        console.print('\n \n \n \n')
+        console.print(summary)
+    else:
+        console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
+    return responses, summary
+
+if __name__ == "__main__":
     args = parse()
     style = args.style
     api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
@@ -105,21 +119,8 @@ def main():
     console.print("[bold]Validating API key ...[/bold]")
     if not validate_key(client):
         console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
-        return
+        exit()
     console.print("[bold]API key validated successfully.[/bold]\n")
     models = get_free_models()
     temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
-    context = find_context()
-    combinations = [(model, temperature) for model in models for temperature in temperatures]
-    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length, style, console))
-    summary_model = args.summary_model if args.summary_model else models[0]
-    summary = summarisation(client, summary_model, args.summary_temperature, responses, context, style, console)
-    if summary:
-        summary = Markdown(summary)
-        console.print('\n \n \n \n')
-        console.print(summary)
-    else:
-        console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
-
-if __name__ == "__main__":
-    main()
+    responses, summary = main()
