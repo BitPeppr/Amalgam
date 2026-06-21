@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import os
 
 import requests
@@ -25,25 +26,28 @@ def validate_key(client):
         return False
 
 
-def query_provider(client, model_, prompt, temperature_, context):
+async def query_provider(client, model_, prompt, temperature_, context):
     try:
-        response = client.chat.completions.create(
-            model=model_,  
+        print(f"Querying model {model_} with temperature {temperature_}...")
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model=model_,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant. You will respond to the user's queries in a concise yet informative and detailed, comprehensive manner. You will be meticulous, ensuring quality and accuracy in your responses. The user will ask you a singular question, and you will provide a single, completely comprehensive and all-encompassing response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts. You will answer the question, no more; you will not ask for clarification or suggest future steps (unless this is requested)."},
                 {"role": "user", "content": prompt},
                 {"role": "user", "content": context}
             ],
-            temperature=temperature_
         )
+        print(f"Response from model {model_} with temperature {temperature_}: {response}")
 
         return (response.choices[0].message.content)
-    except Exception:
-        print(f"Error querying model {model_} with temperature {temperature_}: {str(Exception)}")
+    except Exception as e:
+        print(f"Error querying model {model_} with temperature {temperature_}: {str(e)}")
         return False
 
 def summarisation(client, model_, temperature, responses, context):
     try:
+        print(f"Summarising responses with model {model_} and temperature {temperature}...")
         response = client.chat.completions.create(
             model=model_,  
             messages=[
@@ -51,12 +55,11 @@ def summarisation(client, model_, temperature, responses, context):
                 {"role": "user", "content": "Here are some responses to the same question from different models and temperatures: " + str(responses)},
                 {"role": "user", "content": context}
             ],
-            temperature=temperature
         )
 
         return (response.choices[0].message.content)
-    except Exception:
-        print(f"Error summarising with model {model_} and temperature {temperature}: {str(Exception)}")
+    except Exception as e:
+        print(f"Error summarising with model {model_} and temperature {temperature}: {str(e)}")
         return False
 
 def parse():
@@ -74,6 +77,9 @@ def get_free_models():
     free = [m["id"] for m in r.json()["data"] if m["id"].endswith("-free")]
     return free
 
+async def panel(combinations, client, prompt, context):
+    results = await asyncio.gather(*[query_provider(client, model, prompt, temperature, context) for model, temperature in combinations])
+    return results
 
 def main():
     args = parse()
@@ -82,17 +88,16 @@ def main():
         base_url="https://opencode.ai/zen/v1",
         api_key=api_key_
     )
+    print("Validating API key...")
     if not validate_key(client):
         print("Invalid API key. Please check your key and try again.")
         return
+    print('API key validated successfully.')
     models = get_free_models()
     temperatures = [0.0, 0.4, 0.8]
     context = find_context()
-    responses = []
-    for model in models:
-        for temperature in temperatures:
-            response = query_provider(client, model, args.prompt, temperature, context)
-            responses.append((model, temperature, response))
+    combinations = [(model, temperature) for model in models for temperature in temperatures]
+    responses = asyncio.run(panel(combinations, client, args.prompt, context))
     summary_model = args.summary_model if args.summary_model else models[0]
     summary = summarisation(client, summary_model, args.summary_temperature, responses, context)
     print(summary)
