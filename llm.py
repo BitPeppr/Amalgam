@@ -1,6 +1,8 @@
 import asyncio
 
 import requests
+from rich.live import Live
+from rich.markdown import Markdown
 
 
 def validate_key(client):
@@ -49,15 +51,22 @@ async def query_provider(client, model_, prompt, temperature_, context, conversa
 def summarisation(client, model_, temperature, responses, console):
     try:
         console.print(f"[bold]Summarising responses with model [blue underline]{model_}[/blue underline] and temperature [blue underline]{temperature}[/blue underline] ...[/bold]")
-        response = client.chat.completions.create(
-            model=model_,  
+        stream = client.chat.completions.create(
+            model=model_,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant. The user has sent a prompt to numerous models with different temperatures, and you have received the responses. Your task is to summarise the responses into a single, comprehensive, all-encompassing response that is concise yet informative and detailed. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts. You will synthesise the best information from the responses into a single unified, homogenous response."},
                 {"role": "user", "content": "Here are some responses to the same question from different models and temperatures: " + str(responses)},
             ],
+            stream=True,
         )
-
-        return (response.choices[0].message.content)
+        full_content = ""
+        with Live(console=console, refresh_per_second=12) as live:
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    full_content += delta
+                    live.update(Markdown(full_content))
+        return full_content
     except Exception as e:
         console.print(f"[bold]Error summarising with model [blue underline]{model_}[/blue underline] and temperature [blue underline]{temperature}[/blue underline]:[/bold] [italic]{str(e)}[/italic]")
         return False

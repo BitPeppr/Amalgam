@@ -4,7 +4,6 @@ import os
 
 from openai import OpenAI
 from rich.console import Console
-from rich.markdown import Markdown
 
 from context import find_context
 from llm import get_free_models, panel, summarisation, validate_key
@@ -31,10 +30,7 @@ def main(client, console, prompt, conversation_history):
     responses = asyncio.run(panel(combinations, client, prompt, context, conversation_history, args.print_length, console, 'Panel Responses'))
     summary_model = args.summary_model if args.summary_model else models[0]
     summary = summarisation(client, summary_model, args.summary_temperature, responses, console)
-    if summary:
-        console.print('\n \n \n \n')
-        console.print(Markdown(summary))
-    else:
+    if not summary:
         console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
     return responses, summary
 
