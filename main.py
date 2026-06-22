@@ -21,19 +21,19 @@ def parse():
     parser.add_argument('--num_temperatures', type=int, default=3, help='The number of different temperatures to query for each model (default: 3)')
     parser.add_argument('--max_temperature', type=float, default=1.0, help='The maximum temperature to query (default: 1.0)')
     parser.add_argument('--summarise_context', action='store_true', help='Whether to include the context in the summary prompt (default: False)')
+    parser.add_argument('--conversation', action='store_true', help='Whether to ask for follow-ups (default: False)')
     return parser.parse_args()
 
 
-def main(client, console):
+def main(client, console, prompt, conversation_history):
     context = find_context(client, console, True if args.summarise_context else False)
     combinations = [(model, temperature) for model in models for temperature in temperatures]
-    responses = asyncio.run(panel(combinations, client, args.prompt, context, args.print_length, console, 'Panel Responses'))
+    responses = asyncio.run(panel(combinations, client, prompt, context, conversation_history, args.print_length, console, 'Panel Responses'))
     summary_model = args.summary_model if args.summary_model else models[0]
-    summary = summarisation(client, summary_model, args.summary_temperature, responses, context, console)
+    summary = summarisation(client, summary_model, args.summary_temperature, responses, console)
     if summary:
-        summary = Markdown(summary)
         console.print('\n \n \n \n')
-        console.print(summary)
+        console.print(Markdown(summary))
     else:
         console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
     return responses, summary
@@ -54,4 +54,13 @@ if __name__ == "__main__":
     console.print("[bold]API key validated successfully.[/bold]\n")
     models = get_free_models()
     temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
-    responses, summary = main(client, console)
+    responses, summary = main(client, console, args.prompt, None)
+    if args.conversation:
+        conversation_history = f"User: {args.prompt}\nAssistant: {summary}"
+        while True:
+            follow_up = console.input("\n[bold]Enter a follow-up question (or type 'exit' to quit): [/bold]")
+            if follow_up.lower() == 'exit':
+                console.print("[bold]Exiting the conversation. Goodbye![/bold]")
+                break
+            responses, summary = main(client, console, follow_up, conversation_history)
+            conversation_history += f"\nUser: {follow_up}\nAssistant: {summary}"

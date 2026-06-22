@@ -64,7 +64,7 @@ def read(file, summarise, client, console):
             print(f"Error reading file {file}: {e}")
     else:
         combinations = [('big-pickle', 0.2)]
-        text = asyncio.run(panel(combinations, client, f"Summarise the content of the file {file} in a concise yet informative and detailed manner. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts, or invite follow-up", file.read_text(), 100, console, 'Context'))
+        text = asyncio.run(panel(combinations, client, f"Summarise the content of the file {file} in a concise yet informative and detailed manner. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts, or invite follow-up", file.read_text(), None, 100, console, 'Context'))
     return text
 
 
