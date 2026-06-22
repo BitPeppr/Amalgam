@@ -7,7 +7,7 @@ If you're anything like me, towards the end of your projects, you're always quer
 ## Installation
 
 ```bash
-pip install amalgam
+pip install amalgam-panel
 ```
 
 ## Usage

@@ -3,8 +3,8 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'amalgam'
-version = '0.1.0'
+name = 'amalgam-panel'
+version = '0.1.2'
 description = 'A CLI for querying a panel of llms and returning a combined, cross-referended response, with extensive customisation and usage modes.'
 authors = [{ name = "Martin Chen", email = "martin.chen.au@gmail.com" }]
 license = { file = "LICENSE" }
@@ -15,4 +15,5 @@ dependencies = ["openai", "rich", 'requests']
 [project.scripts]
 amalgam = "amalgam.main:main"
 
-tool.setuptools.packages.find = { where = ["src"] }
+[tool.setuptools.packages.find]
+where = ["src"]

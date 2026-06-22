@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from llm import panel
+from .llm import panel
 
 IGNORE = ['.venv', 'venv', 'env', '.env', 'node_modules', 'dist', 'build', '__pycache__', '.git', '.github', '.vscode', '.idea', '.pytest_cache', '.mypy_cache', '.tox', '.eggs', 'site-packages', 'target', '.notes', '.cache', '.local', '.config', '.cargo', '.rustup', '.nvm', '.npm', '.yarn', '.pnpm', 'vendor', 'third_party', '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes', '.editorconfig', '.prettierignore', '.eslintignore', '.dockerignore', '.npmignore', '.pyc', '.env', '.env.local', '.env.development', '.env.production', '.env.test', 'secret', 'env', 'key', 'keys', 'password', 'passwords', 'credential', 'credentials', 'token', 'tokens',]
 EXTENSIONS = {
