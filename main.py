@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import sys
 
 from openai import OpenAI
 from rich.console import Console
@@ -35,28 +36,38 @@ def main(client, console, prompt, conversation_history):
     return responses, summary
 
 if __name__ == "__main__":
-    args = parse()
-    api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
-    client = OpenAI(
-        base_url="https://opencode.ai/zen/v1",
-        api_key=api_key_,
-        timeout=args.timeout
-    )
-    console = Console()
-    console.print("[bold]Validating API key ...[/bold]")
-    if not validate_key(client):
-        console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
-        exit()
-    console.print("[bold]API key validated successfully.[/bold]\n")
-    models = get_free_models()
-    temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
-    responses, summary = main(client, console, args.prompt, None)
-    if args.conversation:
-        conversation_history = f"User: {args.prompt}\nAssistant: {summary}"
-        while True:
-            follow_up = console.input("\n[bold]Enter a follow-up question (or type 'exit' to quit): [/bold]")
-            if follow_up.lower() == 'exit':
-                console.print("[bold]Exiting the conversation. Goodbye![/bold]")
-                break
-            responses, summary = main(client, console, follow_up, conversation_history)
-            conversation_history += f"\nUser: {follow_up}\nAssistant: {summary}"
+    try:
+        args = parse()
+        api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
+        client = OpenAI(
+            base_url="https://opencode.ai/zen/v1",
+            api_key=api_key_,
+            timeout=args.timeout
+        )
+        console = Console()
+        console.print("[bold]Validating API key ...[/bold]")
+        if not validate_key(client):
+            console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
+            exit()
+        console.print("[bold]API key validated successfully.[/bold]\n")
+        models = get_free_models()
+        temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
+        responses, summary = main(client, console, args.prompt, None)
+        if args.conversation:
+            conversation_history = f"User: {args.prompt}\nAssistant: {summary}"
+            while True:
+                follow_up = console.input("\n[bold]Enter a follow-up question (or type 'exit' to quit): [/bold]")
+                if follow_up.lower() == 'exit':
+                    console.print("[bold]Exiting the conversation. Goodbye![/bold]")
+                    break
+                responses, summary = main(client, console, follow_up, conversation_history)
+                conversation_history += f"\nUser: {follow_up}\nAssistant: {summary}"
+    except KeyboardInterrupt:
+        console = Console()
+        console.print("\n[bold red]Process interrupted. Bye! \n If the process does not exit, please press ctrl+c a few more times. This is a multi-threaded process; quite possibly more than one ctrl+c will be required. Don't mind any keyboard interrupt errors please! [/bold red]")
+        sys.exit(0)
+    except Exception as e:
+        console = Console()
+        console.print(f"[bold red]An error occurred: {e}[/bold red]")
+        console.print('Bye!')
+        sys.exit(0)
