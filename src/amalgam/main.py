@@ -6,8 +6,8 @@ import sys
 from openai import OpenAI
 from rich.console import Console
 
-from context import find_context
-from llm import get_free_models, panel, summarisation, validate_key
+from .context import find_context
+from .llm import get_free_models, panel, summarisation, validate_key
 
 
 def parse():
@@ -25,8 +25,8 @@ def parse():
     return parser.parse_args()
 
 
-def main(client, console, prompt, conversation_history):
-    context = find_context(client, console, True if args.summarise_context else False)
+def main_(args, models, temperatures, client, console, prompt, conversation_history):
+    context = find_context(client, console, args.summarise_context)
     combinations = [(model, temperature) for model in models for temperature in temperatures]
     responses = asyncio.run(panel(combinations, client, prompt, context, conversation_history, args.print_length, console, 'Panel Responses'))
     summary_model = args.summary_model if args.summary_model else models[0]
@@ -35,7 +35,7 @@ def main(client, console, prompt, conversation_history):
         console.print("[bold]No valid responses received from summary model. Unable to generate summary.[/bold]")
     return responses, summary
 
-if __name__ == "__main__":
+def main():
     try:
         args = parse()
         api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         console.print("[bold]API key validated successfully.[/bold]\n")
         models = get_free_models()
         temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
-        responses, summary = main(client, console, args.prompt, None)
+        responses, summary = main_(args, models, temperatures, client, console, args.prompt, None)
         if args.conversation:
             conversation_history = f"User: {args.prompt}\nAssistant: {summary}"
             while True:
@@ -60,7 +60,7 @@ if __name__ == "__main__":
                 if follow_up.lower() == 'exit':
                     console.print("[bold]Exiting the conversation. Goodbye![/bold]")
                     break
-                responses, summary = main(client, console, follow_up, conversation_history)
+                responses, summary = main_(args, models, temperatures, client, console, follow_up, conversation_history)
                 conversation_history += f"\nUser: {follow_up}\nAssistant: {summary}"
     except KeyboardInterrupt:
         console = Console()
@@ -71,3 +71,5 @@ if __name__ == "__main__":
         console.print(f"[bold red]An error occurred: {e}[/bold red]")
         console.print('Bye!')
         sys.exit(0)
+
+if __name__ == "__main__":    main()
