@@ -22,6 +22,8 @@ def parse():
     parser.add_argument('--max_temperature', type=float, default=1.0, help='The maximum temperature to query (default: 1.0)')
     parser.add_argument('--summarise_context', action='store_true', help='Whether to include the context in the summary prompt (default: False)')
     parser.add_argument('--conversation', action='store_true', help='Whether to ask for follow-ups (default: False)')
+    parser.add_argument('--endpoint', type=str, default="https://opencode.ai/zen/v1", help='The API endpoint to use (default: https://opencode.ai/zen/v1)')
+    parser.add_argument('--model', type=str, help='The models to use for the panel (overrides automatic free model detection) (specify as many model names as desired, space-separated)')
     return parser.parse_args()
 
 
@@ -40,17 +42,24 @@ def main():
         args = parse()
         api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
         client = OpenAI(
-            base_url="https://opencode.ai/zen/v1",
+            base_url=args.endpoint,
             api_key=api_key_,
             timeout=args.timeout
         )
         console = Console()
+        if args.model:
+            models = args.model.split()
+        else:
+            models = get_free_models(args.endpoint)
         console.print("[bold]Validating API key ...[/bold]")
-        if not validate_key(client):
-            console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
+        try:
+            if not validate_key(client, models[0]):
+                console.print("[bold]Invalid API key. Please check your key and try again.[/bold]")
+                exit()
+        except RuntimeError as e:
+            console.print(f"[bold red]Validation failed: {e}[/bold red]")
             exit()
         console.print("[bold]API key validated successfully.[/bold]\n")
-        models = get_free_models()
         temperatures = [round(args.max_temperature / args.num_temperatures * i, 2) for i in range(1, args.num_temperatures+1)]
         responses, summary = main_(args, models, temperatures, client, console, args.prompt, None)
         if args.conversation:

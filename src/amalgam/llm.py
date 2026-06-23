@@ -1,26 +1,30 @@
 import asyncio
+from json import JSONDecodeError
 
 import requests
+from openai import APIStatusError, AuthenticationError
 from rich.live import Live
 from rich.markdown import Markdown
 
 
-def validate_key(client):
+def validate_key(client, model):
     try:
-        response = client.chat.completions.create(
-            model="big-pickle",
+        client.chat.completions.create(
+            model=model,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "What is 2 + 2? Provide one number as the answer, and no other words or information."}
-                ],
-            temperature=0.0
-            )
-        if response.choices[0].message.content.strip() == "4":
-            return True
-        else:
-            return False
-    except Exception:
+                {"role": "user", "content": "What is 2 + 2?"}
+            ],
+            temperature=0.0,
+            max_tokens=5
+        )
+        return True
+    except AuthenticationError:
         return False
+    except APIStatusError as e:
+        raise RuntimeError(f"API error: {e.status_code} - {e.response.text}") from e
+    except (ConnectionError, TimeoutError, JSONDecodeError) as e:
+        raise RuntimeError(f"Connection failed: {e}") from e
 
 async def query_provider(client, model_, prompt, temperature_, context, conversation_history, print_length, console, mode):
     try:
@@ -72,8 +76,8 @@ def summarisation(client, model_, temperature, responses, console):
         return False
 
 
-def get_free_models():
-    r = requests.get('https://opencode.ai/zen/v1/models')
+def get_free_models(base_url='https://opencode.ai/zen/v1'):
+    r = requests.get(f'{base_url}/models')
     if len(r.json()["data"]) == 0:
         raise Exception("No models found")
     free = [m["id"] for m in r.json()["data"] if m["id"].endswith("-free")]
