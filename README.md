@@ -14,4 +14,11 @@ pip install amalgam-panel
 
 ```bash
 amalgam --key <your key> --timeout 120 --max_temperature 1 'What is life?'
+amalgam -h # Check all flags and usage
 ```
+
+## Providers and keys
+
+As with any llm tool, a provider is required. The default is opencode zen, and you need not specify an endpoint for this default provider. For any other provider, you may pass --endpoint <endpoint> to use a custom endpoint.
+
+Similarly, a key is required. Since the default endpoint is opencode zen, the tool automatically looks for an environment variable called ZEN_API_KEY. If this is not set, one may pass --key <key> to use a custom, runtime-defined key. For any other provider apart from opencode zen, you must pass --key.
