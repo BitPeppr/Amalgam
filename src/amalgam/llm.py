@@ -41,7 +41,9 @@ async def query_provider(client, model_, prompt, temperature_, context, conversa
             model=model_,
             messages=messages,
         )
-        console.print(f"[bold]Response from model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline]:[/bold] [italic]{response.choices[0].message.content.split('\n')[0][: min(len(response.choices[0].message.content.split('\n')[0]), print_length)]} ...[/italic]\n")
+        content = response.choices[0].message.content
+        first_line = content.split("\n")[0][:print_length]
+        console.print(f"[bold]Response from model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline]:[/bold] [italic]{first_line} ...[/italic]\n")
 
         return (response.choices[0].message.content)
     except Exception as e:

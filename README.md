@@ -6,6 +6,8 @@ If you're anything like me, towards the end of your projects, you're always quer
 
 ## Installation
 
+Requires Python 3.12+.
+
 ```bash
 pip install amalgam-panel
 ```

@@ -23,7 +23,7 @@ def parse():
     parser.add_argument('--summarise_context', action='store_true', help='Whether to include the context in the summary prompt (default: False)')
     parser.add_argument('--conversation', action='store_true', help='Whether to ask for follow-ups (default: False)')
     parser.add_argument('--endpoint', type=str, default="https://opencode.ai/zen/v1", help='The API endpoint to use (default: https://opencode.ai/zen/v1)')
-    parser.add_argument('--model', type=str, help='The models to use for the panel (overrides automatic free model detection) (specify as many model names as desired, space-separated)')
+    parser.add_argument('--model', action='append', type=str, help='The models to use for the panel (overrides automatic free model detection). Repeat the flag for multiple models, e.g. --model a --model b, or pass names space-separated in one flag, e.g. --model "a b"')
     return parser.parse_args()
 
 
@@ -48,7 +48,7 @@ def main():
         )
         console = Console()
         if args.model:
-            models = args.model.split()
+            models = [name for value in args.model for name in value.split()]
         else:
             models = get_free_models(args.endpoint)
         console.print("[bold]Validating API key ...[/bold]")
