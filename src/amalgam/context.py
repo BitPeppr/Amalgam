@@ -56,31 +56,38 @@ def collect_files(root='.'):
     return sorted(files)
 
 def read(file, summarise, client, console):
-    text = ''
-    if not summarise:
-        try:
-            text = file.read_text()
-        except Exception as e:
-            print(f"Error reading file {file}: {e}")
-    else:
+    try:
+        text = file.read_text()
+    except Exception as e:
+        console.print(f"[bold red]Error reading file {file}: {e}[/bold red]")
+        return None
+    if not text.strip():
+        return None
+    if summarise:
         combinations = [('big-pickle', 0.2)]
-        text = asyncio.run(panel(combinations, client, f"Summarise the content of the file {file} in a concise yet informative and detailed manner. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts, or invite follow-up", file.read_text(), None, 100, console, 'Context'))
+        results = asyncio.run(panel(combinations, client, f"Summarise the content of the file {file} in a concise yet informative and detailed manner. You will be meticulous, ensuring quality and accuracy in your response. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts, or invite follow-up", text, None, 100, console, 'Context'))
+        text = next((r for r in results if isinstance(r, str) and r), None)
     return text
 
 
-def find_context(client, console, summarise):
-    tree_data = format_tree(tree())
+def find_context(root='.', client=None, console=None, summarise=False):
+    root = Path(root)
+    tree_data = format_tree(tree(root))
     tree_str = "\n".join(tree_data)
 
-    files = collect_files()
+    files = collect_files(root)
     parts = []
+    included = 0
     for f in files:
         try:
             content = read(f, summarise, client, console)
         except Exception as e:
-            print(f"Error reading file {f}: {e}")
-            content = ""
-        chunk = f"<file path='{f.relative_to('.')}' size='{len(content)}'>\n{content}\n</file>\n"
+            console.print(f"[bold red]Error reading file {f}: {e}[/bold red]")
+            content = None
+        if not content:
+            continue
+        included += 1
+        chunk = f"<file path='{f.relative_to(root)}' size='{len(content)}'>\n{content}\n</file>\n"
         parts.append(chunk)
-    header = f"<files count='{len(files)}'>\n"
+    header = f"<files count='{included}/{len(files)}'>\n"
     return tree_str + "\n\n" + header + "".join(parts) + "</files>"       

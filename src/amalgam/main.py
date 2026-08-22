@@ -2,33 +2,39 @@ import argparse
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 from openai import OpenAI
 from rich.console import Console
 
 from .context import find_context
-from .llm import get_free_models, panel, summarisation, validate_key
+from .llm import panel, summarisation, validate_key
 
 
 def parse():
     parser = argparse.ArgumentParser(description="Run the panel multi-model tool.")
     parser.add_argument("--key", type=str, help="API key for the provider (if unprovided, will use environment variable ZEN_API_KEY)")
     parser.add_argument("prompt", type=str, help="The prompt to send to the panel")
-    parser.add_argument("--summary_model", type=str, help="The model to use for summarisation (default: first free model returned by the provider)")
+    parser.add_argument("--summary_model", type=str, help="The model to use for summarisation (default: the first model in the panel)")
     parser.add_argument("--summary_temperature", type=float, default=0.3, help="The temperature to use for summarisation (default: 0.3)")
     parser.add_argument("--timeout", type=int, default=240, help="The timeout for each model response in seconds (default: 240)")
     parser.add_argument("--print_length", type=int, default=100, help="The number of characters to print from each model's response (default: 100)")
     parser.add_argument('--num_temperatures', type=int, default=3, help='The number of different temperatures to query for each model (default: 3)')
     parser.add_argument('--max_temperature', type=float, default=1.0, help='The maximum temperature to query (default: 1.0)')
     parser.add_argument('--summarise_context', action='store_true', help='Whether to include the context in the summary prompt (default: False)')
+    parser.add_argument('--context', nargs='?', const='.', default=None, help='Opt-in filesystem context. Optional path (default: current directory). Without this flag, no files are read.')
     parser.add_argument('--conversation', action='store_true', help='Whether to ask for follow-ups (default: False)')
     parser.add_argument('--endpoint', type=str, default="https://opencode.ai/zen/v1", help='The API endpoint to use (default: https://opencode.ai/zen/v1)')
-    parser.add_argument('--model', action='append', type=str, help='The models to use for the panel (overrides automatic free model detection). Repeat the flag for multiple models, e.g. --model a --model b, or pass names space-separated in one flag, e.g. --model "a b"')
+    parser.add_argument('--model', action='append', type=str, help='The models to use for the panel (default: big-pickle). Repeat the flag for multiple models, e.g. --model a --model b, or pass names space-separated in one flag, e.g. --model "a b"')
     return parser.parse_args()
 
 
 def main_(args, models, temperatures, client, console, prompt, conversation_history):
-    context = find_context(client, console, args.summarise_context)
+    if args.context is not None:
+        context = find_context(Path(args.context), client, console, args.summarise_context)
+    else:
+        context = ''
+        console.print("[dim]Filesystem context disabled (pass --context PATH to include files).[/dim]")
     combinations = [(model, temperature) for model in models for temperature in temperatures]
     responses = asyncio.run(panel(combinations, client, prompt, context, conversation_history, args.print_length, console, 'Panel Responses'))
     summary_model = args.summary_model if args.summary_model else models[0]
@@ -40,6 +46,10 @@ def main_(args, models, temperatures, client, console, prompt, conversation_hist
 def main():
     try:
         args = parse()
+        if args.context is not None and not Path(args.context).is_dir():
+            console = Console()
+            console.print(f"[bold red]Context path does not exist or is not a directory: {args.context}[/bold red]")
+            sys.exit(1)
         api_key_ = args.key if args.key else os.getenv("ZEN_API_KEY")
         client = OpenAI(
             base_url=args.endpoint,
@@ -50,7 +60,7 @@ def main():
         if args.model:
             models = [name for value in args.model for name in value.split()]
         else:
-            models = get_free_models(args.endpoint)
+            models = ['big-pickle']
         console.print("[bold]Validating API key ...[/bold]")
         try:
             if not validate_key(client, models[0]):

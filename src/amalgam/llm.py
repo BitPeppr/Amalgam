@@ -31,8 +31,9 @@ async def query_provider(client, model_, prompt, temperature_, context, conversa
         console.print(f"[underline]{mode}[/underline]: [bold]Querying model [blue underline]{model_}[/blue underline] with temperature [blue underline]{temperature_}[/blue underline] ...[/bold]\n")
         messages = [
             {"role": "system", "content": "You are a helpful assistant. You will respond to the user's queries in a concise yet informative and detailed, comprehensive manner. You will be meticulous, ensuring quality and accuracy in your responses. Focus exclusively on the most recent user prompt. Any context or conversation history provided is supplementary background only — do not let it distract from answering the current question. You will not provide any information that is not relevant, and you will not invite the user to ask follow-up questions or prompts. You will answer the question, no more; you will not ask for clarification or suggest future steps (unless this is requested)."},
-            {"role": "user", "content": f"Context:\n{context}"},
         ]
+        if context:
+            messages.append({"role": "user", "content": f"Context:\n{context}"})
         if conversation_history:
             messages.append({"role": "user", "content": f"Previous conversation:\n{conversation_history}"})
         messages.append({"role": "user", "content": f"Current question:\n{prompt}"})
